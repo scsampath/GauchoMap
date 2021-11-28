@@ -14,7 +14,7 @@
             android:key="themes"
             android:defaultValue="0"
             android:dialogTitle="set_theme"
-            android:title="Set GauchoMap theme"
+            android:title="GauchoMap theme"
             android:entries="@array/theme_options"
             android:entryValues="@array/theme_options_values" />
 

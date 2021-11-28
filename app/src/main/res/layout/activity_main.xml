@@ -153,6 +153,66 @@
         android:layout_alignParentEnd="true"
         android:layout_marginEnd="16dp" />
 
+    <TextView
+        android:id="@+id/statsDebug"
+        android:visibility="invisible"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/appToolbar"
+        android:layout_alignParentTop="?attr/actionBarSize"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="16dp" />
+
+    <TextView
+        android:id="@+id/notificationDebug"
+        android:visibility="invisible"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/statsDebug"
+        android:layout_alignParentTop="?attr/actionBarSize"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="16dp" />
+
+    <TextView
+        android:id="@+id/themeDebug"
+        android:visibility="invisible"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/notificationDebug"
+        android:layout_alignParentTop="?attr/actionBarSize"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="16dp" />
+
+    <TextView
+        android:id="@+id/mapTypeDebug"
+        android:visibility="invisible"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/themeDebug"
+        android:layout_alignParentTop="?attr/actionBarSize"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="16dp" />
+
+    <TextView
+        android:id="@+id/mapZoomDebug"
+        android:visibility="invisible"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/mapTypeDebug"
+        android:layout_alignParentTop="?attr/actionBarSize"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="16dp" />
+
+    <TextView
+        android:id="@+id/pollingSpeedDebug"
+        android:visibility="invisible"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/mapZoomDebug"
+        android:layout_alignParentTop="?attr/actionBarSize"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="16dp" />
+
     <com.airbnb.lottie.LottieAnimationView
         android:id="@+id/animationView"
         android:layout_width="match_parent"

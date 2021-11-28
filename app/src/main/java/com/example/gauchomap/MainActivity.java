@@ -67,6 +67,12 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     private TextView satelliteCountTextView;
     private TextView satelliteFixCountTextView;
+    private TextView statsDebugTextView;
+    private TextView notificationDebugTextView;
+    private TextView themeDebugTextView;
+    private TextView mapTypeDebugTextView;
+    private TextView mapZoomDebugTextView;
+    private TextView pollingSpeedDebugTextView;
 
     private ArrayList<Satellite> satelliteArray;
     private ArrayAdapter adapter;
@@ -83,13 +89,15 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private boolean autoCameraButtonPressed;
     private boolean menuClicked;
     private boolean navigateClicked;
-    private boolean debugStats;
+    private boolean statsDebug;
+    private boolean notificationDebug;
+
+    private String[] settingsValues;
 
     private String theme;
-    private String mapType;
-    private String mapZoom;
-        private int mapZoomNum;
-    private String pollingSpeed;
+    private int mapType;
+    private int mapZoom;
+    private int pollingSpeed;
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
@@ -103,11 +111,14 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         // Initialize Preferences and load settings variables
         SharedPreferences sharedPreferences =
                 PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
-        theme = sharedPreferences.getString("themes", "0");
-        mapType = sharedPreferences.getString("mapType", "0");
-        mapZoom = sharedPreferences.getString("mapZoom", "1");
-        debugStats = sharedPreferences.getBoolean("stats", false);
-        pollingSpeed = sharedPreferences.getString("pollingSpeed", "1");
+        statsDebug = sharedPreferences.getBoolean("stats", false);
+        notificationDebug = sharedPreferences.getBoolean("notifications", false);
+        settingsValues = new String[] {sharedPreferences.getString("themes", "0"),
+                sharedPreferences.getString("mapType", "0"),
+                sharedPreferences.getString("mapZoom", "1"),
+                sharedPreferences.getString("pollingSpeed", "1")};
+        // Decode settingsValues array
+        decodeSettings(settingsValues);
 
         // Set up animations
         animationView = findViewById(R.id.animationView);
@@ -172,9 +183,22 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         // Set up Location Manager
         mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
-        // Set up satellite count data for debug
+        // Set up debug data
         satelliteCountTextView = findViewById(R.id.satelliteCount);
         satelliteFixCountTextView = findViewById(R.id.satelliteFixCount);
+        statsDebugTextView = findViewById(R.id.statsDebug);
+            statsDebugTextView.setText(String.valueOf(statsDebug));
+        notificationDebugTextView = findViewById(R.id.notificationDebug);
+            notificationDebugTextView.setText(String.valueOf(notificationDebug));
+        themeDebugTextView = findViewById(R.id.themeDebug);
+            themeDebugTextView.setText(theme);
+        mapTypeDebugTextView = findViewById(R.id.mapTypeDebug);
+            mapTypeDebugTextView.setText(String.valueOf(mapType));
+        mapZoomDebugTextView = findViewById(R.id.mapZoomDebug);
+            mapZoomDebugTextView.setText(String.valueOf(mapZoom));
+        pollingSpeedDebugTextView = findViewById(R.id.pollingSpeedDebug);
+            pollingSpeedDebugTextView.setText(String.valueOf(pollingSpeed));
+
 
         // Set up satelliteArray
         if(satelliteArray == null){
@@ -230,9 +254,15 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 navigate.setVisibility(View.VISIBLE);
                 // debug : visible if condition met
                 // debug : invisible if condition not met
-                if(debugStats){
+                if(statsDebug){
                     satelliteCountTextView.setVisibility(View.VISIBLE);
                     satelliteFixCountTextView.setVisibility(View.VISIBLE);
+                    statsDebugTextView.setVisibility(View.VISIBLE);
+                    notificationDebugTextView.setVisibility(View.VISIBLE);
+                    themeDebugTextView.setVisibility(View.VISIBLE);
+                    mapTypeDebugTextView.setVisibility(View.VISIBLE);
+                    mapZoomDebugTextView.setVisibility(View.VISIBLE);
+                    pollingSpeedDebugTextView.setVisibility(View.VISIBLE);
                 }
             }
         }, 4500);
@@ -241,23 +271,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     @Override
     public void onMapReady(GoogleMap googleMap) {
         this.googleMap = googleMap;
-        // retrieving and customizing map based on settings
-        int mapTypeNum;
-        if(mapType.equals("0")){
-            mapTypeNum = 1;
-        } else if(mapType.equals("1")){
-            mapTypeNum = 4;
-        } else {
-            mapTypeNum = 3;
-        }
-        if(mapZoom.equals("0")){
-            mapZoomNum = 17;
-        } else if(mapZoom.equals("1")){
-            mapZoomNum = 16;
-        } else {
-            mapZoomNum = 15;
-        }
-        googleMap.setMapType(mapTypeNum);
+        googleMap.setMapType(mapType);
     }
 
     @Override
@@ -275,7 +289,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
         //auto-centering
         if(autoCameraButtonPressed){
-            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, mapZoomNum));
+            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, mapZoom));
         }
     }
 
@@ -370,27 +384,50 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         }
     }
 
+    public void decodeSettings(String[] settingsValuesArray){
+        if(settingsValuesArray[0].equals("0")){
+            theme = "Dark";
+        } else {
+            theme = "Light";
+        }
+
+        if(settingsValuesArray[1].equals("0")){
+            mapType = 1;
+        } else if(settingsValuesArray[1].equals("1")){
+            mapType = 4;
+        } else {
+            mapType = 3;
+        }
+
+        if(settingsValuesArray[2].equals("0")){
+            mapZoom = 17;
+        } else if(settingsValuesArray[2].equals("1")){
+            mapZoom = 16;
+        } else {
+            mapZoom = 15;
+        }
+
+        if(settingsValuesArray[3].equals("0")){
+            pollingSpeed = 2000;
+        } else if(settingsValuesArray[3].equals("1")){
+            pollingSpeed = 1000;
+        } else {
+            pollingSpeed = 500;
+        }
+    }
+
     @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onStart() throws SecurityException {
-        super.onStart();
+        super. onStart();
         String[] permissions = {Manifest.permission.ACCESS_BACKGROUND_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.INTERNET};
-
-        int pollingSpeedNum;
-        if(pollingSpeed.equals("0")){
-            pollingSpeedNum = 2000;
-        } else if(pollingSpeed.equals("1")){
-            pollingSpeedNum = 1000;
-        } else {
-            pollingSpeedNum = 500;
-        }
 
         if (checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
                 && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
                 && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                 && checkSelfPermission(Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED) {
-            Log.e("Polling Speed: ", "" + pollingSpeedNum);
-            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, pollingSpeedNum, 0, this);
+            Log.e("Polling Speed: ", "" + pollingSpeed);
+            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, pollingSpeed, 0, this);
             mLocationManager.registerGnssStatusCallback(mGnssStatusCallback);
         } else {
             Log.e("Permissions", "Permissions Requested");
@@ -415,5 +452,4 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         mLocationManager.removeUpdates(this);
         mLocationManager.unregisterGnssStatusCallback(mGnssStatusCallback);
     }
-
 }
