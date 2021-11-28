@@ -3,16 +3,22 @@ package com.example.gauchomap;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.cardview.widget.CardView;
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.FragmentContainerView;
+import androidx.preference.PreferenceManager;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.location.GnssStatus;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -28,56 +34,234 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import android.animation.Animator;
 import android.os.Handler;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.widget.ArrayAdapter;
+import android.widget.TextView;
+
+import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity implements LocationListener, OnMapReadyCallback {
 
     private LottieAnimationView animationView;
     private GoogleMap googleMap;
+    private GnssStatus.Callback mGnssStatusCallback;
+    private Toolbar mToolbar;
+
+    private FloatingActionButton menu;
+        private FloatingActionButton menuCancel;
+        private FloatingActionButton settings;
+        private FloatingActionButton stats;
+    private FloatingActionButton navigate;
+        private FloatingActionButton navigateCancel;
+        private FloatingActionButton bike;
+        private FloatingActionButton search;
+
+    private TextView satelliteCountTextView;
+    private TextView satelliteFixCountTextView;
+
+    private ArrayList<Satellite> satelliteArray;
+    private ArrayAdapter adapter;
+
+    private Animation fromBottom;
+    private Animation toBottom;
+    private Animation fromBottom2;
+    private Animation toBottom2;
 
     private LocationManager mLocationManager;
 
     private Marker currentLocation;
 
+    private boolean autoCameraButtonPressed;
+    private boolean menuClicked;
+    private boolean navigateClicked;
+    private boolean debugStats;
+
+    private String theme;
+    private String mapType;
+    private String mapZoom;
+        private int mapZoomNum;
+    private String pollingSpeed;
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        // Initialize Shared Preferences
+        SharedPreferences prefs = getSharedPreferences("GauchoMapStorage", MODE_PRIVATE);
+        autoCameraButtonPressed = prefs.getBoolean("autoCameraButton", false);
+
+        // Initialize Preferences and load settings variables
+        SharedPreferences sharedPreferences =
+                PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
+        theme = sharedPreferences.getString("themes", "0");
+        mapType = sharedPreferences.getString("mapType", "0");
+        mapZoom = sharedPreferences.getString("mapZoom", "1");
+        debugStats = sharedPreferences.getBoolean("stats", false);
+        pollingSpeed = sharedPreferences.getString("pollingSpeed", "1");
+
+        // Set up animations
         animationView = findViewById(R.id.animationView);
+        fromBottom = AnimationUtils.loadAnimation(this, R.anim.from_bottom_anim);
+        toBottom = AnimationUtils.loadAnimation(this, R.anim.to_bottom_anim);
+        fromBottom2 = AnimationUtils.loadAnimation(this, R.anim.from_bottom_anim);
+        toBottom2 = AnimationUtils.loadAnimation(this, R.anim.to_bottom_anim);
 
+        // Set up toolbar
+        mToolbar = findViewById(R.id.appToolbar);
+        setSupportActionBar(mToolbar);
+
+        // Set up Google Maps
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+        mapFragment.getMapAsync(MainActivity.this::onMapReady);
+
+        // Set up fab buttons
+        menu = findViewById(R.id.menuFab);
+            menuCancel = findViewById(R.id.cancelMenuFab);
+            settings = findViewById(R.id.settingsFab);
+            stats = findViewById(R.id.statsFab);
+        navigate = findViewById(R.id.navigationFab);
+            navigateCancel = findViewById(R.id.cancelNavigateFab);
+            bike = findViewById(R.id.bikeFab);
+            search = findViewById(R.id.searchFab);
+        menuClicked = false;
+        navigateClicked = false;
+        menu.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if(!navigateClicked){
+                    menuClicked = true;
+                    onMenuButtonClicked();
+                }
+            }
+        });
+        menuCancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                menuClicked = false;
+                onMenuButtonClicked();
+            }
+        });
+        navigate.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if(!menuClicked){
+                    navigateClicked = true;
+                    onNavigateButtonClicked();
+                }
+            }
+        });
+        navigateCancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                navigateClicked = false;
+                onNavigateButtonClicked();
+            }
+        });
+
+        // Set up Location Manager
         mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
-        }
-        mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, this);
 
+        // Set up satellite count data for debug
+        satelliteCountTextView = findViewById(R.id.satelliteCount);
+        satelliteFixCountTextView = findViewById(R.id.satelliteFixCount);
+
+        // Set up satelliteArray
+        if(satelliteArray == null){
+            satelliteArray = new ArrayList<>();
+        }
+//        satelliteList = findViewById(R.id.satelliteList);
+//        satelliteList.setVisibility(View.INVISIBLE);
+//        satelliteList.setBackgroundColor(Color.WHITE);
+        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, satelliteArray);
+//        satelliteList.setAdapter(adapter);
+
+        // Set up GNSS
+        mGnssStatusCallback = new GnssStatus.Callback() {
+            @RequiresApi(api = Build.VERSION_CODES.O)
+            @Override
+            public void onSatelliteStatusChanged(GnssStatus status) {
+                super.onSatelliteStatusChanged(status);
+                satelliteArray.clear();
+
+                int satelliteCount = status.getSatelliteCount();
+                int satelliteFixCount = 0;
+
+                for(int sat = 0; sat<satelliteCount; sat++ ){
+                    double azimuth = status.getAzimuthDegrees(sat);
+                    double elevation = status.getElevationDegrees(sat);
+                    double carrierFrequency = status.getCarrierFrequencyHz(sat);
+                    double noiseDensity = status.getCn0DbHz(sat);
+                    int constellationName = status.getConstellationType(sat);
+                    int SVID = status.getSvid(sat);
+                    if(status.usedInFix(sat)){
+                        satelliteFixCount++;
+                    }
+                    Satellite satellite = new Satellite(sat + 1,azimuth,elevation,carrierFrequency,noiseDensity,constellationName,SVID);
+                    satelliteArray.add(satellite);
+                }
+                satelliteCountTextView.setText("" + satelliteCount);
+                satelliteFixCountTextView.setText("" + satelliteFixCount);
+                adapter.notifyDataSetChanged();
+            }
+        };
+
+        //Close Animation and make view visible
         final Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                // Set up Google Maps
-                SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                        .findFragmentById(R.id.map);
-                mapFragment.getMapAsync(MainActivity.this::onMapReady);
+                // animation : invisible
+                animationView.setVisibility(View.INVISIBLE);
+                // toolbar : visible
+                mToolbar.setVisibility(View.VISIBLE);
+                // fabs : visible
+                menu.setVisibility(View.VISIBLE);
+                navigate.setVisibility(View.VISIBLE);
+                // debug : visible if condition met
+                // debug : invisible if condition not met
+                if(debugStats){
+                    satelliteCountTextView.setVisibility(View.VISIBLE);
+                    satelliteFixCountTextView.setVisibility(View.VISIBLE);
+                }
             }
-        }, 3000);
+        }, 4500);
+    }
+
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        this.googleMap = googleMap;
+        // retrieving and customizing map based on settings
+        int mapTypeNum;
+        if(mapType.equals("0")){
+            mapTypeNum = 1;
+        } else if(mapType.equals("1")){
+            mapTypeNum = 4;
+        } else {
+            mapTypeNum = 3;
+        }
+        if(mapZoom.equals("0")){
+            mapZoomNum = 17;
+        } else if(mapZoom.equals("1")){
+            mapZoomNum = 16;
+        } else {
+            mapZoomNum = 15;
+        }
+        googleMap.setMapType(mapTypeNum);
     }
 
     @Override
     public void onLocationChanged(Location location) {
-        Log.e("Location: ","Location Changed");
-
         if(currentLocation != null){
             currentLocation.remove();
         }
@@ -90,33 +274,146 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 .title("Current Location"));
 
         //auto-centering
-        googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, 15));
+        if(autoCameraButtonPressed){
+            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, mapZoomNum));
+        }
     }
 
+    // Toolbar button setup
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        final Toolbar mToolbar = (Toolbar) findViewById(R.id.appToolbar);
+        mToolbar.inflateMenu(R.menu.main_activity_menu);
+        mToolbar.setOnMenuItemClickListener(item -> onOptionsItemSelected(item));
+        return true;
+    }
+
+    // Toolbar button logic
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.autoCameraButton:
+                Log.e("Button: ", "autoCameraButton pressed");
+                autoCameraButtonPressed = !autoCameraButtonPressed;
+                break;
+            default:
+                break;
+        }
+        return true;
+    }
+
+    public void onMenuButtonClicked() {
+        if(menuClicked){
+            settings.setVisibility(View.VISIBLE);
+            settings.setAnimation(fromBottom);
+            settings.getAnimation().start();
+            stats.setVisibility(View.VISIBLE);
+            stats.setAnimation(fromBottom);
+            stats.getAnimation().start();
+            menu.setVisibility(View.INVISIBLE);
+            menuCancel.setVisibility(View.VISIBLE);
+
+            settings.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    menuClicked = false;
+                    onMenuButtonClicked();
+                    Intent myIntent = new Intent(MainActivity.this, SettingsActivity.class);
+                    startActivity(myIntent);
+                }
+            });
+            stats.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    menuClicked = false;
+                    onMenuButtonClicked();
+                    Intent myIntent = new Intent(MainActivity.this, StatisticsActivity.class);
+                    startActivity(myIntent);
+                }
+            });
+        } else {
+            settings.setVisibility(View.INVISIBLE);
+            settings.setClickable(false);
+            settings.setAnimation(toBottom);
+            settings.getAnimation().start();
+            stats.setVisibility(View.INVISIBLE);
+            stats.setClickable(false);
+            stats.setAnimation(toBottom);
+            stats.getAnimation().start();
+            menu.setVisibility(View.VISIBLE);
+            menuCancel.setVisibility(View.INVISIBLE);
+        }
+
+    }
+
+    public void onNavigateButtonClicked() {
+        if(navigateClicked){
+            bike.setVisibility(View.VISIBLE);
+            bike.setAnimation(fromBottom2);
+            bike.getAnimation().start();
+            search.setVisibility(View.VISIBLE);
+            search.setAnimation(fromBottom2);
+            search.getAnimation().start();
+            navigate.setVisibility(View.INVISIBLE);
+            navigateCancel.setVisibility(View.VISIBLE);
+        } else {
+            bike.setVisibility(View.INVISIBLE);
+            bike.setClickable(false);
+            bike.setAnimation(toBottom2);
+            bike.getAnimation().start();
+            search.setVisibility(View.INVISIBLE);
+            search.setClickable(false);
+            search.setAnimation(toBottom2);
+            search.getAnimation().start();
+            navigate.setVisibility(View.VISIBLE);
+            navigateCancel.setVisibility(View.INVISIBLE);
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onStart() throws SecurityException {
         super.onStart();
+        String[] permissions = {Manifest.permission.ACCESS_BACKGROUND_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.INTERNET};
 
-    }
+        int pollingSpeedNum;
+        if(pollingSpeed.equals("0")){
+            pollingSpeedNum = 2000;
+        } else if(pollingSpeed.equals("1")){
+            pollingSpeedNum = 1000;
+        } else {
+            pollingSpeedNum = 500;
+        }
 
-    @Override
-    public void onMapReady(GoogleMap googleMap) {
-        FragmentContainerView mapView = findViewById(R.id.map);
-        mapView.setVisibility(View.VISIBLE);
-        animationView.setVisibility(View.INVISIBLE);
-        this.googleMap = googleMap;
+        if (checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED) {
+            Log.e("Polling Speed: ", "" + pollingSpeedNum);
+            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, pollingSpeedNum, 0, this);
+            mLocationManager.registerGnssStatusCallback(mGnssStatusCallback);
+        } else {
+            Log.e("Permissions", "Permissions Requested");
+            requestPermissions(permissions, 123);
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        // Initialize Editor for saving data
+        SharedPreferences.Editor  mEditor = getSharedPreferences("GauchoMapStorage", MODE_PRIVATE).edit();
+        //save autoCameraButtonPressed state
+        mEditor.putBoolean("autoCameraButton", autoCameraButtonPressed).apply();
 
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onStop() {
         super.onStop();
         mLocationManager.removeUpdates(this);
+        mLocationManager.unregisterGnssStatusCallback(mGnssStatusCallback);
     }
 
 }
